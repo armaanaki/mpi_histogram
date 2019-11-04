@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <algorithm>
 
+// define the histogram struct
 typedef struct histogram_struct
 {
   size_t num_bins;
@@ -11,6 +12,7 @@ typedef struct histogram_struct
   unsigned long long* bin_counts;
 } histogram;
 
+// methods later defined -- should be split into header file for clarity
 bool get_input(int my_rank, int comm_sz, int argc, char** argv, double*& data, unsigned long long& num_bins, unsigned long long& num_doubles);
 void split_data(int my_rank, int comm_sz, double*& my_data, double*& data, unsigned long long data_size);
 double find_min(double*& my_data, unsigned long long size);
@@ -80,9 +82,11 @@ int main (int argc, char** argv) {
         display_histogram(*h);
     }
 
+    // tell MPI it's finished
     MPI_Finalize();
 }
 
+// method to read input, only called from root process
 bool get_input(int my_rank, int comm_sz, int argc, char** argv, double*& data, unsigned long long& num_bins, unsigned long long& num_doubles) {
     if (argc != 3) {
         printf("expected <file_name> <number of intervals>\n");
@@ -101,6 +105,7 @@ bool get_input(int my_rank, int comm_sz, int argc, char** argv, double*& data, u
     return false;
 }
 
+// method to split data among different processess-- root process handles all the splitting, everyone else waits and listens
 void split_data(int my_rank, int comm_sz, double*& my_data, double*& data, unsigned long long data_size) {
     unsigned long long size_per_process = data_size/comm_sz;
 
@@ -118,6 +123,7 @@ void split_data(int my_rank, int comm_sz, double*& my_data, double*& data, unsig
     } else MPI_Recv(my_data, size_per_process, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
 
+// method to find max (used on local data)
 double find_max(double*& my_data, unsigned long long size) {
     double current_max = my_data[0];
     for (int i = 1; i < size; i++)
@@ -126,6 +132,7 @@ double find_max(double*& my_data, unsigned long long size) {
     return current_max;
 }
 
+// method to find min (used on local data)
 double find_min(double*& my_data, unsigned long long size) {
     double current_min = my_data[0];
     for (int i = 1; i < size; i++)
@@ -134,6 +141,7 @@ double find_min(double*& my_data, unsigned long long size) {
     return current_min;
 }
 
+// method to create bins from max and min
 double* create_bins(double min, double max, unsigned long long num_bins) {
     double* bins = new double[num_bins];
     double length = (max - min)/num_bins;
@@ -145,7 +153,7 @@ double* create_bins(double min, double max, unsigned long long num_bins) {
     return bins;
 }
 
-
+// method to count hits for each bin
 unsigned long long* bin_counts(unsigned long long num_bins, const double* bins, const double* data, unsigned long long data_size) {
     unsigned long long* bin_counts = new unsigned long long[num_bins];
     std::fill (bin_counts, bin_counts + num_bins, 0);
@@ -157,6 +165,7 @@ unsigned long long* bin_counts(unsigned long long num_bins, const double* bins, 
     return bin_counts;
 }
 
+// method to find which bin a number belongs in
 unsigned long long find_bin_num (double x, const double* bins, unsigned long long num_bins) {
     unsigned long long i = 0;
     while (i < num_bins && x > bins[i]) i++;
@@ -165,6 +174,7 @@ unsigned long long find_bin_num (double x, const double* bins, unsigned long lon
     return i;
 }
 
+// method to print histogram
 void display_histogram (const histogram& h) {
     double length = h.bins[1] - h.bins[0];
     double initial_left = h.bins[0] - length;
